@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jadwal PR</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#96B6C5',
+            secondary: '#ADC4CE',
+            accent: '#EEE0C9',
+            softbg: '#F1F0E8',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #F1F0E8; }
+    .badge-belum  { background-color: #f8d7da; color: #842029; }
+    .badge-selesai { background-color: #d1e7dd; color: #0f5132; }
+  </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 font-sans">
+
+  <!-- Header -->
+  <div class="max-w-5xl mx-auto mb-8 text-center">
+    <h1 class="text-3xl md:text-4xl font-bold text-gray-800">📚 Jadwal PR</h1>
+    <p class="text-gray-500 mt-1 text-sm md:text-base">Kelola pekerjaan rumahmu dengan mudah</p>
+  </div>
+
+  <!-- Layout: sidebar form (laptop) / stacked (mobile) -->
+  <div class="max-w-5xl mx-auto flex flex-col lg:flex-row gap-6 items-start">
+
+    <!-- Form Tambah PR (sticky di laptop) -->
+    <div class="w-full lg:w-80 lg:sticky lg:top-8 flex-shrink-0">
+      <div class="bg-white rounded-2xl shadow-md p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">Tambah PR Baru</h2>
+        <div class="flex flex-col gap-3">
+          <div>
+            <label class="text-sm font-medium text-gray-600 mb-1 block">Mata Pelajaran</label>
+            <input id="inputMapel" type="text" placeholder="Contoh: Matematika"
+              class="w-full border border-accent rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+          </div>
+          <div>
+            <label class="text-sm font-medium text-gray-600 mb-1 block">Tugas</label>
+            <input id="inputTugas" type="text" placeholder="Contoh: Halaman 45 no. 1-10"
+              class="w-full border border-accent rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+          </div>
+          <div>
+            <label class="text-sm font-medium text-gray-600 mb-1 block">Deadline</label>
+            <input id="inputDeadline" type="date"
+              class="w-full border border-accent rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+          </div>
+          <button onclick="kirimData()"
+            class="mt-2 bg-primary hover:bg-secondary text-gray-800 font-semibold py-2.5 px-6 rounded-xl transition-colors duration-200 w-full">
+            + Tambah PR
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Kanan: Alert + Daftar PR -->
+    <div class="flex-1 min-w-0">
+
+      <!-- Alert -->
+      <div id="alertBox" class="hidden mb-4">
+        <div class="bg-green-100 border border-green-300 text-green-700 rounded-xl px-4 py-3 text-sm font-medium">
+          ✅ PR berhasil ditambahkan!
+        </div>
+      </div>
+
+      <!-- Daftar PR -->
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-gray-800">Daftar PR</h2>
+        <span id="prCount" class="text-xs text-gray-400"></span>
+      </div>
+
+      <!-- Grid: 1 kolom mobile, 2 kolom laptop -->
+      <div id="prList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+      <p id="emptyMsg" class="text-center text-gray-400 text-sm mt-8 hidden">Belum ada PR. Tambahkan yang pertama!</p>
+    </div>
+
+  </div>
+
+  <script>
+    // =============================================
+    // GANTI URL INI DENGAN URL APPS SCRIPT KAMU
+    // =============================================
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzcefZo2Dijq_Gpompj_J32zU91uXQjJr-n3hznMHQn-4D4PjjqcT9dGjnnJ1PSOIOM/exec';
+    let prData = [];
+
+    // =============================================
+    // Ambil data dari Apps Script (GET)
+    // =============================================
+    async function fetchData() {
+      document.getElementById('prList').innerHTML = '<p class="text-center text-gray-400 text-sm">Memuat data...</p>';
+      try {
+        const res = await fetch(`${APPS_SCRIPT_URL}?action=getData`);
+        const result = await res.json();
+        if (result.success) {
+          prData = result.data;
+          renderPR();
+        }
+      } catch (err) {
+        console.error('Gagal fetch data:', err);
+        renderPR();
+      }
+    }
+
+    // =============================================
+    // Render daftar PR ke DOM
+    // =============================================
+    function renderPR() {
+      const list = document.getElementById('prList');
+      const emptyMsg = document.getElementById('emptyMsg');
+      const prCount = document.getElementById('prCount');
+      list.innerHTML = '';
+
+      if (prData.length === 0) {
+        emptyMsg.classList.remove('hidden');
+        prCount.textContent = '';
+        return;
+      }
+
+      emptyMsg.classList.add('hidden');
+      const belum = prData.filter(p => p.status !== 'Selesai').length;
+      prCount.textContent = `${belum} belum selesai · ${prData.length} total`;
+
+      prData.forEach(item => {
+        const isSelesai = item.status === 'Selesai';
+        const badgeClass = isSelesai ? 'badge-selesai' : 'badge-belum';
+        const badgeLabel = isSelesai ? 'Selesai' : 'Belum';
+
+        const card = document.createElement('div');
+        card.className = 'bg-white rounded-2xl shadow-sm p-5 flex flex-col gap-2 border border-gray-100 h-full';
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">${escapeHtml(item.mapel)}</span>
+            <span class="text-xs font-semibold px-3 py-1 rounded-full ${badgeClass}">${badgeLabel}</span>
+          </div>
+          <p class="text-gray-800 font-medium text-sm flex-1">${escapeHtml(item.tugas)}</p>
+          <div class="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
+            <span class="text-xs text-gray-400">📅 ${escapeHtml(String(item.deadline))}</span>
+            ${!isSelesai ? `
+              <button onclick="updateStatus(${item.no}, 'Selesai')"
+                class="text-xs bg-primary hover:bg-secondary text-gray-800 font-medium px-3 py-1.5 rounded-lg transition-colors duration-200">
+                ✓ Selesai
+              </button>` : `<span class="text-xs text-green-600 font-medium">✓ Selesai</span>`}
+          </div>
+        `;
+        list.appendChild(card);
+      });
+    }
+
+    // =============================================
+    // Kirim data baru ke Apps Script
+    // =============================================
+    async function kirimData() {
+      const mapel    = document.getElementById('inputMapel').value.trim();
+      const tugas    = document.getElementById('inputTugas').value.trim();
+      const deadlineRaw = document.getElementById('inputDeadline').value;
+
+      // Validasi
+      if (!mapel || !tugas || !deadlineRaw) {
+        alert('⚠️ Semua field wajib diisi!');
+        return;
+      }
+
+      // Format deadline ke DD-MM-YYYY
+      const [yyyy, mm, dd] = deadlineRaw.split('-');
+      const deadline = `${dd}-${mm}-${yyyy}`;
+
+      const params = new URLSearchParams({ action: 'tambah', mapel, tugas, deadline });
+
+      try {
+        const res = await fetch(`${APPS_SCRIPT_URL}?${params}`);
+        const result = await res.json();
+        if (!result.success) throw new Error(result.message || 'Gagal');
+      } catch (err) {
+        alert('❌ Gagal mengirim data: ' + err.message);
+        return;
+      }
+
+      // Tambah ke data lokal (optimistic update)
+      const newNo = prData.length > 0 ? Math.max(...prData.map(p => p.no)) + 1 : 1;
+      prData.unshift({ no: newNo, mapel, tugas, deadline, status: 'Belum' });
+
+      // Reset form
+      document.getElementById('inputMapel').value = '';
+      document.getElementById('inputTugas').value = '';
+      document.getElementById('inputDeadline').value = '';
+
+      showAlert();
+      await fetchData(); // reload dari spreadsheet supaya no selalu sinkron
+    }
+
+    // =============================================
+    // Update status PR ke Apps Script
+    // =============================================
+    async function updateStatus(no, status) {
+      const params = new URLSearchParams({ action: 'updateStatus', no, status });
+
+      try {
+        const res = await fetch(`${APPS_SCRIPT_URL}?${params}`);
+        const result = await res.json();
+        if (!result.success) throw new Error(result.message || 'Gagal');
+      } catch (err) {
+        alert('❌ Gagal update status: ' + err.message);
+        return;
+      }
+
+      // Update data lokal
+      const item = prData.find(p => p.no === no);
+      if (item) item.status = status;
+
+      await fetchData(); // reload supaya sinkron dengan spreadsheet
+    }
+
+    // =============================================
+    // Tampilkan alert sukses sementara
+    // =============================================
+    function showAlert() {
+      const box = document.getElementById('alertBox');
+      box.classList.remove('hidden');
+      setTimeout(() => box.classList.add('hidden'), 3000);
+    }
+
+    // =============================================
+    // Escape HTML untuk keamanan
+    // =============================================
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // Init
+    fetchData();
+  </script>
+</body>
+</html>
